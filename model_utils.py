@@ -17,35 +17,35 @@ import tensorflow as tf
 
 def configure_tpu(FLAGS):
   if FLAGS.use_tpu:
-    tpu_cluster = tf.contrib.cluster_resolver.TPUClusterResolver(
+    tpu_cluster = tf.compat.v1.contrib.cluster_resolver.TPUClusterResolver(
         FLAGS.tpu, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
     master = tpu_cluster.get_master()
   else:
     tpu_cluster = None
     master = FLAGS.master
 
-  session_config = tf.ConfigProto(allow_soft_placement=True)
+  session_config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
   # Uncomment the following line if you hope to monitor GPU RAM growth
   # session_config.gpu_options.allow_growth = True
 
   if FLAGS.use_tpu:
     strategy = None
-    tf.logging.info('Use TPU without distribute strategy.')
+    tf.compat.v1.logging.info('Use TPU without distribute strategy.')
   elif FLAGS.num_core_per_host == 1:
     strategy = None
-    tf.logging.info('Single device mode.')
+    tf.compat.v1.logging.info('Single device mode.')
   else:
-    strategy = tf.contrib.distribute.MirroredStrategy(
+    strategy = tf.compat.v1.contrib.distribute.MirroredStrategy(
         num_gpus=FLAGS.num_core_per_host)
-    tf.logging.info('Use MirroredStrategy with %d devices.',
+    tf.compat.v1.logging.info('Use MirroredStrategy with %d devices.',
                     strategy.num_replicas_in_sync)
 
-  per_host_input = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
-  run_config = tf.contrib.tpu.RunConfig(
+  per_host_input = tf.compat.v1.contrib.tpu.InputPipelineConfig.PER_HOST_V2
+  run_config = tf.compat.v1.contrib.tpu.RunConfig(
       master=master,
       model_dir=FLAGS.model_dir,
       session_config=session_config,
-      tpu_config=tf.contrib.tpu.TPUConfig(
+      tpu_config=tf.compat.v1.contrib.tpu.TPUConfig(
           iterations_per_loop=FLAGS.iterations,
           num_shards=FLAGS.num_hosts * FLAGS.num_core_per_host,
           per_host_input_for_training=per_host_input),
@@ -58,7 +58,7 @@ def configure_tpu(FLAGS):
 
 
 def init_from_checkpoint(FLAGS, global_vars=False):
-  tvars = tf.global_variables() if global_vars else tf.trainable_variables()
+  tvars = tf.compat.v1.global_variables() if global_vars else tf.compat.v1.trainable_variables()
   initialized_variable_names = {}
   scaffold_fn = None
   if FLAGS.init_checkpoint is not None:
@@ -68,32 +68,32 @@ def init_from_checkpoint(FLAGS, global_vars=False):
     else:
       init_checkpoint = FLAGS.init_checkpoint
 
-    tf.logging.info("Initialize from the ckpt {}".format(init_checkpoint))
+    tf.compat.v1.logging.info("Initialize from the ckpt {}".format(init_checkpoint))
 
     (assignment_map, initialized_variable_names
     ) = get_assignment_map_from_checkpoint(tvars, init_checkpoint)
     if FLAGS.use_tpu:
       def tpu_scaffold():
-        tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
-        return tf.train.Scaffold()
+        tf.compat.v1.train.init_from_checkpoint(init_checkpoint, assignment_map)
+        return tf.compat.v1.train.Scaffold()
 
       scaffold_fn = tpu_scaffold
     else:
-      tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
+      tf.compat.v1.train.init_from_checkpoint(init_checkpoint, assignment_map)
 
     # Log customized initialization
-    tf.logging.info("**** Global Variables ****")
+    tf.compat.v1.logging.info("**** Global Variables ****")
     for var in tvars:
       init_string = ""
       if var.name in initialized_variable_names:
         init_string = ", *INIT_FROM_CKPT*"
-      tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
+      tf.compat.v1.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                       init_string)
   return scaffold_fn
 
 
 def get_train_op(FLAGS, total_loss, grads_and_vars=None):
-  global_step = tf.train.get_or_create_global_step()
+  global_step = tf.compat.v1.train.get_or_create_global_step()
 
   # increase the learning rate linearly
   if FLAGS.warmup_steps > 0:
@@ -105,13 +105,13 @@ def get_train_op(FLAGS, total_loss, grads_and_vars=None):
 
   # decay the learning rate
   if FLAGS.decay_method == "poly":
-    decay_lr = tf.train.polynomial_decay(
+    decay_lr = tf.compat.v1.train.polynomial_decay(
         FLAGS.learning_rate,
         global_step=global_step - FLAGS.warmup_steps,
         decay_steps=FLAGS.train_steps - FLAGS.warmup_steps,
         end_learning_rate=FLAGS.learning_rate * FLAGS.min_lr_ratio)
   elif FLAGS.decay_method == "cos":
-    decay_lr = tf.train.cosine_decay(
+    decay_lr = tf.compat.v1.train.cosine_decay(
         FLAGS.learning_rate,
         global_step=global_step - FLAGS.warmup_steps,
         decay_steps=FLAGS.train_steps - FLAGS.warmup_steps,
@@ -128,7 +128,7 @@ def get_train_op(FLAGS, total_loss, grads_and_vars=None):
                      "training so far.")
 
   if FLAGS.weight_decay == 0:
-    optimizer = tf.train.AdamOptimizer(
+    optimizer = tf.compat.v1.train.AdamOptimizer(
         learning_rate=learning_rate,
         epsilon=FLAGS.adam_epsilon)
   else:
@@ -139,7 +139,7 @@ def get_train_op(FLAGS, total_loss, grads_and_vars=None):
         weight_decay_rate=FLAGS.weight_decay)
 
   if FLAGS.use_tpu:
-    optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
+    optimizer = tf.compat.v1.contrib.tpu.CrossShardOptimizer(optimizer)
 
   if grads_and_vars is None:
     grads_and_vars = optimizer.compute_gradients(total_loss)
@@ -158,7 +158,7 @@ def get_train_op(FLAGS, total_loss, grads_and_vars=None):
         if "model/transformer/layer_{}/".format(l) in variables[i].name:
           abs_rate = FLAGS.lr_layer_decay_rate ** (n_layer - 1 - l)
           clipped[i] *= abs_rate
-          tf.logging.info("Apply mult {:.4f} to layer-{} grad of {}".format(
+          tf.compat.v1.logging.info("Apply mult {:.4f} to layer-{} grad of {}".format(
               abs_rate, l, variables[i].name))
           break
 
@@ -177,41 +177,41 @@ def clean_ckpt(_):
   input_ckpt = FLAGS.clean_input_ckpt
   output_model_dir = FLAGS.clean_output_model_dir
 
-  tf.reset_default_graph()
+  tf.compat.v1.reset_default_graph()
 
-  var_list = tf.contrib.framework.list_variables(input_ckpt)
+  var_list = tf.compat.v1.contrib.framework.list_variables(input_ckpt)
   var_values, var_dtypes = {}, {}
   for (name, shape) in var_list:
     if not name.startswith("global_step") and "adam" not in name.lower():
       var_values[name] = None
-      tf.logging.info("Include {}".format(name))
+      tf.compat.v1.logging.info("Include {}".format(name))
     else:
-      tf.logging.info("Exclude {}".format(name))
+      tf.compat.v1.logging.info("Exclude {}".format(name))
 
-  tf.logging.info("Loading from {}".format(input_ckpt))
-  reader = tf.contrib.framework.load_checkpoint(input_ckpt)
+  tf.compat.v1.logging.info("Loading from {}".format(input_ckpt))
+  reader = tf.compat.v1.contrib.framework.load_checkpoint(input_ckpt)
   for name in var_values:
     tensor = reader.get_tensor(name)
     var_dtypes[name] = tensor.dtype
     var_values[name] = tensor
 
-  with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
+  with tf.compat.v1.variable_scope(tf.compat.v1.get_variable_scope(), reuse=tf.compat.v1.AUTO_REUSE):
     tf_vars = [
-        tf.get_variable(v, shape=var_values[v].shape, dtype=var_dtypes[v])
+        tf.compat.v1.get_variable(v, shape=var_values[v].shape, dtype=var_dtypes[v])
         for v in var_values
     ]
-  placeholders = [tf.placeholder(v.dtype, shape=v.shape) for v in tf_vars]
-  assign_ops = [tf.assign(v, p) for (v, p) in zip(tf_vars, placeholders)]
+  placeholders = [tf.compat.v1.placeholder(v.dtype, shape=v.shape) for v in tf_vars]
+  assign_ops = [tf.compat.v1.assign(v, p) for (v, p) in zip(tf_vars, placeholders)]
   global_step = tf.Variable(
       0, name="global_step", trainable=False, dtype=tf.int64)
-  saver = tf.train.Saver(tf.all_variables())
+  saver = tf.compat.v1.train.Saver(tf.compat.v1.all_variables())
 
-  if not tf.gfile.Exists(output_model_dir):
-    tf.gfile.MakeDirs(output_model_dir)
+  if not tf.compat.v1.gfile.Exists(output_model_dir):
+    tf.compat.v1.gfile.MakeDirs(output_model_dir)
 
   # Build a model consisting only of variables, set them to the average values.
-  with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
+  with tf.compat.v1.Session() as sess:
+    sess.run(tf.compat.v1.initialize_all_variables())
     for p, assign_op, (name, value) in zip(placeholders, assign_ops,
                                            six.iteritems(var_values)):
       sess.run(assign_op, {p: value})
@@ -222,7 +222,7 @@ def clean_ckpt(_):
 
 
 def avg_checkpoints(model_dir, output_model_dir, last_k):
-  tf.reset_default_graph()
+  tf.compat.v1.reset_default_graph()
 
   checkpoint_state = tf.train.get_checkpoint_state(model_dir)
   checkpoints = checkpoint_state.all_model_checkpoint_paths[- last_k:]
@@ -237,24 +237,24 @@ def avg_checkpoints(model_dir, output_model_dir, last_k):
       tensor = reader.get_tensor(name)
       var_dtypes[name] = tensor.dtype
       var_values[name] += tensor
-    tf.logging.info("Read from checkpoint %s", checkpoint)
+    tf.compat.v1.logging.info("Read from checkpoint %s", checkpoint)
   for name in var_values:  # Average.
     var_values[name] /= len(checkpoints)
 
-  with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
+  with tf.compat.v1.variable_scope(tf.compat.v1.get_variable_scope(), reuse=tf.compat.v1.AUTO_REUSE):
     tf_vars = [
-        tf.get_variable(v, shape=var_values[v].shape, dtype=var_dtypes[v])
+        tf.compat.v1.get_variable(v, shape=var_values[v].shape, dtype=var_dtypes[v])
         for v in var_values
     ]
-  placeholders = [tf.placeholder(v.dtype, shape=v.shape) for v in tf_vars]
-  assign_ops = [tf.assign(v, p) for (v, p) in zip(tf_vars, placeholders)]
+  placeholders = [tf.compat.v1.placeholder(v.dtype, shape=v.shape) for v in tf_vars]
+  assign_ops = [tf.compat.v1.assign(v, p) for (v, p) in zip(tf_vars, placeholders)]
   global_step = tf.Variable(
       0, name="global_step", trainable=False, dtype=tf.int64)
-  saver = tf.train.Saver(tf.all_variables())
+  saver = tf.compat.v1.train.Saver(tf.compat.v1.all_variables())
 
   # Build a model consisting only of variables, set them to the average values.
-  with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
+  with tf.compat.v1.Session() as sess:
+    sess.run(tf.compat.v1.initialize_all_variables())
     for p, assign_op, (name, value) in zip(placeholders, assign_ops,
                                            six.iteritems(var_values)):
       sess.run(assign_op, {p: value})
@@ -324,13 +324,13 @@ class AdamWeightDecayOptimizer(tf.optimizers.Optimizer):
 
       param_name = self._get_variable_name(param.name)
 
-      m = tf.get_variable(
+      m = tf.compat.v1.get_variable(
           name=param_name + "/adam_m",
           shape=param.shape.as_list(),
           dtype=tf.float32,
           trainable=False,
           initializer=tf.zeros_initializer())
-      v = tf.get_variable(
+      v = tf.compat.v1.get_variable(
           name=param_name + "/adam_v",
           shape=param.shape.as_list(),
           dtype=tf.float32,
@@ -378,7 +378,7 @@ class AdamWeightDecayOptimizer(tf.optimizers.Optimizer):
     if self.exclude_from_weight_decay:
       for r in self.exclude_from_weight_decay:
         if re.search(r, param_name) is not None:
-          tf.logging.info('Adam WD excludes {}'.format(param_name))
+          tf.compat.v1.logging.info('Adam WD excludes {}'.format(param_name))
           return False
     return True
 
@@ -396,4 +396,4 @@ if __name__ == "__main__":
 
   FLAGS = flags.FLAGS
 
-  tf.app.run(clean_ckpt)
+  tf.compat.v1.app.run(clean_ckpt)
