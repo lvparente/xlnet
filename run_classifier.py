@@ -183,7 +183,7 @@ class DataProcessor(object):
   @classmethod
   def _read_tsv(cls, input_file, quotechar=None):
     """Reads a tab separated value file."""
-    with tf.gfile.Open(input_file, "r") as f:
+    with tf.io.gfile.Open(input_file, "r") as f:
       reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
       lines = []
       for line in reader:
@@ -284,7 +284,7 @@ class Yelp5Processor(DataProcessor):
   def _create_examples(self, input_file):
     """Creates examples for the training and dev sets."""
     examples = []
-    with tf.gfile.Open(input_file) as f:
+    with tf.io.gfile.Open(input_file) as f:
       reader = csv.reader(f)
       for i, line in enumerate(reader):
 
@@ -309,11 +309,11 @@ class ImdbProcessor(DataProcessor):
     examples = []
     for label in ["neg", "pos"]:
       cur_dir = os.path.join(data_dir, label)
-      for filename in tf.gfile.ListDirectory(cur_dir):
+      for filename in tf.io.gfile.ListDirectory(cur_dir):
         if not filename.endswith("txt"): continue
 
         path = os.path.join(cur_dir, filename)
-        with tf.gfile.Open(path) as f:
+        with tf.io.gfile.Open(path) as f:
           text = f.read().strip().replace("<br />", " ")
         examples.append(InputExample(
             guid="unused_id", text_a=text, text_b=None, label=label))
@@ -398,7 +398,7 @@ def file_based_convert_examples_to_features(
   """Convert a set of `InputExample`s to a TFRecord file."""
 
   # do not create duplicated records
-  if tf.gfile.Exists(output_file) and not FLAGS.overwrite_data:
+  if tf.io.gfile.Exists(output_file) and not FLAGS.overwrite_data:
     tf.compat.v1.logging.info("Do not overwrite tfrecord {} exists.".format(output_file))
     return
 
@@ -642,8 +642,8 @@ def main(_):
 
   if FLAGS.do_predict:
     predict_dir = FLAGS.predict_dir
-    if not tf.gfile.Exists(predict_dir):
-      tf.gfile.MakeDirs(predict_dir)
+    if not tf.io.gfile.Exists(predict_dir):
+      tf.io.gfile.MakeDirs(predict_dir)
 
   processors = {
       "mnli_matched": MnliMatchedProcessor,
@@ -658,8 +658,8 @@ def main(_):
         "At least one of `do_train`, `do_eval, `do_predict` or "
         "`do_submit` must be True.")
 
-  if not tf.gfile.Exists(FLAGS.output_dir):
-    tf.gfile.MakeDirs(FLAGS.output_dir)
+  if not tf.io.gfile.Exists(FLAGS.output_dir):
+    tf.io.gfile.MakeDirs(FLAGS.output_dir)
 
   task_name = FLAGS.task_name.lower()
 
@@ -756,7 +756,7 @@ def main(_):
 
     # Filter out all checkpoints in the directory
     steps_and_files = []
-    filenames = tf.gfile.ListDirectory(FLAGS.model_dir)
+    filenames = tf.io.gfile.ListDirectory(FLAGS.model_dir)
 
     for filename in filenames:
       if filename.endswith(".index"):
@@ -814,7 +814,7 @@ def main(_):
         drop_remainder=False)
 
     predict_results = []
-    with tf.gfile.Open(os.path.join(predict_dir, "{}.tsv".format(
+    with tf.io.gfile.Open(os.path.join(predict_dir, "{}.tsv".format(
         task_name)), "w") as fout:
       fout.write("index\tprediction\n")
 
@@ -847,7 +847,7 @@ def main(_):
     predict_json_path = os.path.join(predict_dir, "{}.logits.json".format(
         task_name))
 
-    with tf.gfile.Open(predict_json_path, "w") as fp:
+    with tf.io.gfile.Open(predict_json_path, "w") as fp:
       json.dump(predict_results, fp, indent=4)
 
 
