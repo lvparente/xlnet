@@ -498,7 +498,7 @@ def file_based_input_fn_builder(input_file, seq_length, is_training,
       d = d.repeat()
 
     d = d.apply(
-        tf.contrib.data.map_and_batch(
+        tf.estimator.data.map_and_batch(
             lambda record: _decode_record(record, name_to_features),
             batch_size=batch_size,
             drop_remainder=drop_remainder))
@@ -540,17 +540,17 @@ def get_model_fn(n_class):
             'predictions': predictions,
             'weights': is_real_example
         }
-        accuracy = tf.metrics.accuracy(**eval_input_dict)
+        accuracy = tf.compat.v1.metrics.accuracy(**eval_input_dict).
 
-        loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
+        loss = tf.compat.v1.metrics.mean(values=per_example_loss, weights=is_real_example)
         return {
             'eval_accuracy': accuracy,
             'eval_loss': loss}
 
       def regression_metric_fn(
           per_example_loss, label_ids, logits, is_real_example):
-        loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
-        pearsonr = tf.contrib.metrics.streaming_pearson_correlation(
+        loss = tf.compat.v1.metrics.mean(values=per_example_loss, weights=is_real_example)
+        pearsonr = tf.compat.v1.estimator.metrics.streaming_pearson_correlation(
             logits, label_ids, weights=is_real_example)
         return {'eval_loss': loss, 'eval_pearsonr': pearsonr}
 
@@ -566,7 +566,7 @@ def get_model_fn(n_class):
       metric_args = [per_example_loss, label_ids, logits, is_real_example]
 
       if FLAGS.use_tpu:
-        eval_spec = tf.contrib.tpu.TPUEstimatorSpec(
+        eval_spec = tf.estimator.tpu.TPUEstimatorSpec(
             mode=mode,
             loss=total_loss,
             eval_metrics=(metric_fn, metric_args),
@@ -589,7 +589,7 @@ def get_model_fn(n_class):
       }
 
       if FLAGS.use_tpu:
-        output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+        output_spec = tf.estimator.tpu.TPUEstimatorSpec(
             mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
       else:
         output_spec = tf.estimator.EstimatorSpec(
@@ -621,7 +621,7 @@ def get_model_fn(n_class):
       else:
         host_call = None
 
-      train_spec = tf.contrib.tpu.TPUEstimatorSpec(
+      train_spec = tf.estimator.tpu.TPUEstimatorSpec(
           mode=mode, loss=total_loss, train_op=train_op, host_call=host_call,
           scaffold_fn=scaffold_fn)
     else:
@@ -684,7 +684,7 @@ def main(_):
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
   if FLAGS.use_tpu:
-    estimator = tf.compat.contrib.tpu.TPUEstimator(
+    estimator = tf.estimator.tpu.TPUEstimator(
         use_tpu=FLAGS.use_tpu,
         model_fn=model_fn,
         config=run_config,
