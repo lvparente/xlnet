@@ -523,7 +523,7 @@ def get_model_fn(n_class):
           FLAGS, features, n_class, is_training)
 
     #### Check model parameters
-    num_params = sum([np.prod(v.shape) for v in tf.trainable_variables()])
+    num_params = sum([np.prod(v.shape) for v in tf.compat.v1.trainable_variables()])
     tf.compat.v1.logging.info('#params: {}'.format(num_params))
 
     #### load pretrained models
@@ -540,7 +540,7 @@ def get_model_fn(n_class):
             'predictions': predictions,
             'weights': is_real_example
         }
-        accuracy = tf.compat.v1.metrics.accuracy(**eval_input_dict).
+        accuracy = tf.compat.v1.metrics.accuracy(**eval_input_dict)
 
         loss = tf.compat.v1.metrics.mean(values=per_example_loss, weights=is_real_example)
         return {
