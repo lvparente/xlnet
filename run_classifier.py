@@ -183,7 +183,7 @@ class DataProcessor(object):
   @classmethod
   def _read_tsv(cls, input_file, quotechar=None):
     """Reads a tab separated value file."""
-    with tf.io.gfile.Open(input_file, "r") as f:
+    with tf.io.gfile.GFile(input_file, "r") as f:
       reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
       lines = []
       for line in reader:
@@ -284,7 +284,7 @@ class Yelp5Processor(DataProcessor):
   def _create_examples(self, input_file):
     """Creates examples for the training and dev sets."""
     examples = []
-    with tf.io.gfile.Open(input_file) as f:
+    with tf.io.gfile.GFile(input_file) as f:
       reader = csv.reader(f)
       for i, line in enumerate(reader):
 
@@ -309,11 +309,11 @@ class ImdbProcessor(DataProcessor):
     examples = []
     for label in ["neg", "pos"]:
       cur_dir = os.path.join(data_dir, label)
-      for filename in tf.io.gfile.ListDirectory(cur_dir):
+      for filename in tf.io.gfile.listdir(cur_dir):
         if not filename.endswith("txt"): continue
 
         path = os.path.join(cur_dir, filename)
-        with tf.io.gfile.Open(path) as f:
+        with tf.io.gfile.GFile(path) as f:
           text = f.read().strip().replace("<br />", " ")
         examples.append(InputExample(
             guid="unused_id", text_a=text, text_b=None, label=label))
@@ -398,13 +398,13 @@ def file_based_convert_examples_to_features(
   """Convert a set of `InputExample`s to a TFRecord file."""
 
   # do not create duplicated records
-  if tf.io.gfile.Exists(output_file) and not FLAGS.overwrite_data:
+  if tf.io.gfile.exists(output_file) and not FLAGS.overwrite_data:
     tf.compat.v1.logging.info("Do not overwrite tfrecord {} exists.".format(output_file))
     return
 
   tf.compat.v1.logging.info("Create new tfrecord {}.".format(output_file))
 
-  writer = tf.python_io.TFRecordWriter(output_file)
+  writer = tf.io.TFRecordWriter(output_file)
 
   if num_passes > 1:
     examples *= num_passes
@@ -447,20 +447,20 @@ def file_based_input_fn_builder(input_file, seq_length, is_training,
 
 
   name_to_features = {
-      "input_ids": tf.FixedLenFeature([seq_length], tf.int64),
-      "input_mask": tf.FixedLenFeature([seq_length], tf.float32),
-      "segment_ids": tf.FixedLenFeature([seq_length], tf.int64),
-      "label_ids": tf.FixedLenFeature([], tf.int64),
-      "is_real_example": tf.FixedLenFeature([], tf.int64),
+      "input_ids": tf.io.FixedLenFeature([seq_length], tf.int64),
+      "input_mask": tf.io.FixedLenFeature([seq_length], tf.float32),
+      "segment_ids": tf.io.FixedLenFeature([seq_length], tf.int64),
+      "label_ids": tf.io.FixedLenFeature([], tf.int64),
+      "is_real_example": tf.io.FixedLenFeature([], tf.int64),
   }
   if FLAGS.is_regression:
-    name_to_features["label_ids"] = tf.FixedLenFeature([], tf.float32)
+    name_to_features["label_ids"] = tf.io.FixedLenFeature([], tf.float32)
 
   tf.compat.v1.logging.info("Input tfrecord file {}".format(input_file))
 
   def _decode_record(record, name_to_features):
     """Decodes a record to a TensorFlow example."""
-    example = tf.parse_single_example(record, name_to_features)
+    example = tf.io.parse_single_example(record, name_to_features)
 
     # tf.Example only supports tf.int64, but the TPU only supports tf.int32.
     # So cast all int64 to int32.
@@ -642,8 +642,8 @@ def main(_):
 
   if FLAGS.do_predict:
     predict_dir = FLAGS.predict_dir
-    if not tf.io.gfile.Exists(predict_dir):
-      tf.io.gfile.MakeDirs(predict_dir)
+    if not tf.io.gfile.exists(predict_dir):
+      tf.io.gfile.makedirs(predict_dir)
 
   processors = {
       "mnli_matched": MnliMatchedProcessor,
@@ -658,8 +658,8 @@ def main(_):
         "At least one of `do_train`, `do_eval, `do_predict` or "
         "`do_submit` must be True.")
 
-  if not tf.io.gfile.Exists(FLAGS.output_dir):
-    tf.io.gfile.MakeDirs(FLAGS.output_dir)
+  if not tf.io.gfile.exists(FLAGS.output_dir):
+    tf.io.gfile.makedirs(FLAGS.output_dir)
 
   task_name = FLAGS.task_name.lower()
 
@@ -684,7 +684,7 @@ def main(_):
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
   if FLAGS.use_tpu:
-    estimator = tf.contrib.tpu.TPUEstimator(
+    estimator = tf.compat.contrib.tpu.TPUEstimator(
         use_tpu=FLAGS.use_tpu,
         model_fn=model_fn,
         config=run_config,
@@ -756,7 +756,7 @@ def main(_):
 
     # Filter out all checkpoints in the directory
     steps_and_files = []
-    filenames = tf.io.gfile.ListDirectory(FLAGS.model_dir)
+    filenames = tf.io.gfile.listdir(FLAGS.model_dir)
 
     for filename in filenames:
       if filename.endswith(".index"):
@@ -814,7 +814,7 @@ def main(_):
         drop_remainder=False)
 
     predict_results = []
-    with tf.io.gfile.Open(os.path.join(predict_dir, "{}.tsv".format(
+    with tf.io.gfile.GFile(os.path.join(predict_dir, "{}.tsv".format(
         task_name)), "w") as fout:
       fout.write("index\tprediction\n")
 
@@ -847,7 +847,7 @@ def main(_):
     predict_json_path = os.path.join(predict_dir, "{}.logits.json".format(
         task_name))
 
-    with tf.io.gfile.Open(predict_json_path, "w") as fp:
+    with tf.io.gfile.GFile(predict_json_path, "w") as fp:
       json.dump(predict_results, fp, indent=4)
 
 
