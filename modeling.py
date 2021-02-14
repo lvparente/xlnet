@@ -72,8 +72,7 @@ def positionwise_ffn(inp, d_model, d_inner, dropout, kernel_initializer,
                              name='layer_2')
     output = tf.compat.v1.layers.dropout(output, dropout, training=is_training,
                                name='drop_2')
-    output = tf.keras.layers.LayerNormalization(output + inp, begin_norm_axis=-1,
-                                          scope='LayerNorm')
+    output = tf.keras.layers.LayerNormalization(output + inp, axis=-1)
   return output
 
 
@@ -97,11 +96,9 @@ def post_attention(h, attn_vec, d_model, n_head, d_head, dropout, is_training,
 
   attn_out = tf.compat.v1.layers.dropout(attn_out, dropout, training=is_training)
   if residual:
-    output = tf.keras.layers.LayerNormalization(attn_out + h, begin_norm_axis=-1,
-                                          scope='LayerNorm')
+    output = tf.keras.layers.LayerNormalization(attn_out + h, axis=-1)
   else:
-    output = tf.keras.layers.LayerNormalization(attn_out, begin_norm_axis=-1,
-                                          scope='LayerNorm')
+    output = tf.keras.layers.LayerNormalization(attn_out, axis=-1)
 
   return output
 
