@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 
 def gelu(x):
@@ -72,7 +73,7 @@ def positionwise_ffn(inp, d_model, d_inner, dropout, kernel_initializer,
                              name='layer_2')
     output = tf.compat.v1.layers.dropout(output, dropout, training=is_training,
                                name='drop_2')
-    output = tf.keras.layers.LayerNormalization(output + inp, axis=-1)
+    output = tf.keras.layers.LayerNormalization(axis=-1)(output + inp)
   return output
 
 
@@ -96,9 +97,9 @@ def post_attention(h, attn_vec, d_model, n_head, d_head, dropout, is_training,
 
   attn_out = tf.compat.v1.layers.dropout(attn_out, dropout, training=is_training)
   if residual:
-    output = tf.keras.layers.LayerNormalization(attn_out + h, axis=-1)
+    output = tf.keras.layers.LayerNormalization(axis=-1)(attn_out + h)
   else:
-    output = tf.keras.layers.LayerNormalization(attn_out, axis=-1)
+    output = tf.contrib.layers.layer_norm(axis=-1)(attn_out)
 
   return output
 
